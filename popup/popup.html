@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChatGPT Helper</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">CGH</div>
+    <div>
+      <h1>ChatGPT Helper</h1>
+      <p class="sub" id="sub">Очередь, промпты, галерея, пины, диалоги</p>
+    </div>
+  </header>
+
+  <section class="stats">
+    <div><b id="q">0</b><span id="qLabel">в очереди</span></div>
+    <div><b id="f">0</b><span id="fLabel">промптов</span></div>
+    <div><b id="p">0</b><span id="pLabel">пинов</span></div>
+  </section>
+
+  <section>
+    <h2 id="favTitle">Избранные промпты</h2>
+    <div id="favs" class="list"></div>
+  </section>
+
+  <section>
+    <h2 id="setTitle">Настройки</h2>
+    <label class="check" for="language">
+      <span id="langLabel">Язык</span>
+    </label>
+    <select id="language">
+      <option value="ru">Русский</option>
+      <option value="en">English</option>
+    </select>
+    <label class="check">
+      <input type="checkbox" id="autoQueue" />
+      <span id="autoQueueLabel">Если ChatGPT занят, Enter добавляет запрос в очередь</span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="autoProcess" />
+      <span id="autoProcessLabel">Автоматически отправлять очередь</span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="cacheImages" />
+      <span id="cacheImagesLabel">Кэшировать изображения галереи</span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="lightTrim" />
+      <span id="lightTrimLabel">Облегчение длинных чатов</span>
+    </label>
+    <label class="check" for="lightTrimLimit">
+      <span id="lightTrimLimitLabel">Сколько сообщений оставлять</span>
+    </label>
+    <input id="lightTrimLimit" type="number" min="2" max="200" step="1" value="10" />
+  </section>
+
+  <footer>
+    <button id="open" type="button">Открыть ChatGPT</button>
+    <p class="hint" id="hint">На странице чата: Alt+H — панель, Alt+Q — в очередь.</p>
+  </footer>
+  <script src="popup.js"></script>
+</body>
+</html>

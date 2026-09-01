@@ -1,0 +1,81 @@
+{
+  "manifest_version": 3,
+  "name": "ChatGPT Helper",
+  "version": "1.0.0",
+  "description": "Очередь запросов с фото, избранные промпты, галерея, закрепление сообщений и менеджер диалогов для ChatGPT.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "ChatGPT Helper",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "unlimitedStorage", "activeTab"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": ["content/lighttrim-loader.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "lib/utils.js",
+        "lib/storage.js",
+        "lib/i18n.js",
+        "lib/dom.js",
+        "content/panel.js",
+        "content/queue.js",
+        "content/favorites.js",
+        "content/gallery.js",
+        "content/pins.js",
+        "content/conversations.js",
+        "content/settings.js",
+        "content/composer-bar.js",
+        "content/content.js"
+      ],
+      "css": ["content/page.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content/panel.css", "icons/*", "inject/lighttrim.js"],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ]
+    }
+  ],
+  "commands": {
+    "toggle-panel": {
+      "suggested_key": { "default": "Alt+H" },
+      "description": "Открыть / закрыть панель ChatGPT Helper"
+    },
+    "queue-prompt": {
+      "suggested_key": { "default": "Alt+Q" },
+      "description": "Добавить текущий промпт в очередь"
+    }
+  }
+}
