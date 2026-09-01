@@ -53,6 +53,7 @@
         cacheImages: true,
         lightTrimEnabled: false,
         lightTrimKeepSpecial: true,
+        cavemanEnabled: false,
       };
       const row = (key, label) => {
         const input = CGH.el("input", { type: "checkbox" });
@@ -60,6 +61,7 @@
         input.addEventListener("change", async () => {
           await patchSettings({ [key]: input.checked });
           if (key === "autoProcess" && input.checked) CGH.queue?.tryProcess?.();
+          if (key === "cavemanEnabled") CGH.caveman?.refresh?.();
         });
         return CGH.el("label", { class: "cgh-check" }, input, label);
       };
@@ -99,7 +101,32 @@
         CGH.el("p", { class: "cgh-muted" }, CGH.t.lightTrimReloadNote)
       );
 
-      root.append(langSection, general, lightTrim, CGH.el("p", { class: "cgh-muted" }, CGH.t.shortcuts));
+      const level = CGH.cavemanDirective?.normLevel?.(settings.cavemanLevel) || "full";
+      const levelSelect = CGH.el(
+        "select",
+        { class: "cgh-input" },
+        CGH.el("option", { value: "lite" }, CGH.t.cavemanLite),
+        CGH.el("option", { value: "full" }, CGH.t.cavemanFull),
+        CGH.el("option", { value: "ultra" }, CGH.t.cavemanUltra)
+      );
+      levelSelect.value = level;
+      levelSelect.addEventListener("change", async () => {
+        await patchSettings({ cavemanLevel: levelSelect.value });
+        CGH.caveman?.refresh?.();
+      });
+
+      const caveman = CGH.el(
+        "section",
+        { class: "cgh-section" },
+        CGH.el("h3", { class: "cgh-section-title" }, CGH.t.caveman),
+        CGH.el("p", { class: "cgh-settings-hint" }, CGH.t.cavemanHint),
+        row("cavemanEnabled", CGH.t.cavemanEnabled),
+        CGH.el("label", { class: "cgh-label" }, CGH.t.cavemanLevel),
+        levelSelect,
+        CGH.el("p", { class: "cgh-muted" }, CGH.t.cavemanIndicatorHint)
+      );
+
+      root.append(langSection, general, caveman, lightTrim, CGH.el("p", { class: "cgh-muted" }, CGH.t.shortcuts));
     },
   };
 })();

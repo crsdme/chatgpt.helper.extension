@@ -1,6 +1,7 @@
 (() => {
   const CGH = (window.CGH = window.CGH || {});
   let host;
+  let fab;
   let shadow;
   let currentTab = "queue";
   let cssLoaded = false;
@@ -20,8 +21,21 @@
     return n > 0 ? String(n) : "";
   }
 
+  function syncThemeTokens(el) {
+    if (!el) return;
+    try {
+      const cs = getComputedStyle(document.documentElement);
+      const bg = cs.getPropertyValue("--theme-submit-btn-bg").trim();
+      const fg = cs.getPropertyValue("--theme-submit-btn-text").trim();
+      if (bg) el.style.setProperty("--theme-submit-btn-bg", bg);
+      if (fg) el.style.setProperty("--theme-submit-btn-text", fg);
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function ensureCss() {
-    if (cssLoaded) return;
+    if (cssLoaded || !shadow) return;
     try {
       const url = CGH.runtime?.getURL?.("content/panel.css");
       if (!url) return;
@@ -36,9 +50,9 @@
   }
 
   function renderShell() {
-    const wrap = shadow.querySelector(".cgh-panel");
+    const wrap = shadow?.querySelector(".cgh-panel");
     if (!wrap) return;
-    wrap.classList.toggle("is-open", host.classList.contains("is-open"));
+    wrap.classList.toggle("is-open", host?.classList.contains("is-open"));
     const tabs = wrap.querySelector(".cgh-tabs");
     tabs.replaceChildren(
       ...TABS.map((tab) =>
@@ -70,12 +84,81 @@
   }
 
   function updateFab() {
-    const badge = shadow.querySelector(".cgh-fab-badge");
+    const badge = fab?.querySelector?.(".cgh-fab-badge");
     const text = fabBadge();
     if (badge) {
       badge.textContent = text;
       badge.hidden = !text;
     }
+    if (fab) {
+      fab.title = CGH.t?.app || "ChatGPT Helper";
+      fab.setAttribute("aria-label", CGH.t?.app || "ChatGPT Helper");
+      syncThemeTokens(fab);
+    }
+  }
+
+  function ensureFab() {
+    fab = document.getElementById("cgh-fab");
+    const icon = CGH.svg(CGH.icons.sparkles || CGH.icons.star, 18);
+    if (!fab) {
+      fab = CGH.el(
+        "button",
+        {
+          id: "cgh-fab",
+          class: "cgh-fab-btn",
+          type: "button",
+          title: CGH.t?.app || "ChatGPT Helper",
+          "aria-label": CGH.t?.app || "ChatGPT Helper",
+          onclick: (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            CGH.panel.toggle();
+          },
+        },
+        icon,
+        CGH.el("span", { class: "cgh-fab-badge", hidden: true })
+      );
+    } else {
+      const old = fab.querySelector("svg");
+      if (old) old.replaceWith(icon);
+      else fab.prepend(icon);
+    }
+    syncThemeTokens(fab);
+    if (!fab.isConnected) {
+      (document.body || document.documentElement).appendChild(fab);
+    }
+    updateFab();
+    return fab;
+  }
+
+  async function createHost() {
+    host = CGH.el("div", { id: "cgh-root", class: "cgh-root" });
+    syncThemeTokens(host);
+    shadow = host.attachShadow({ mode: "open" });
+    cssLoaded = false;
+    document.documentElement.appendChild(host);
+    await ensureCss();
+
+    shadow.append(
+      CGH.el(
+        "aside",
+        { class: "cgh-panel", role: "dialog", "aria-label": CGH.t.app },
+        CGH.el(
+          "header",
+          { class: "cgh-header" },
+          CGH.el("span", { class: "cgh-title" }, CGH.t.app),
+          CGH.el(
+            "button",
+            { class: "cgh-icon-btn cgh-close-btn", type: "button", title: CGH.t.close || "Close", onclick: () => CGH.panel.close() },
+            CGH.svg(CGH.icons.close, 16)
+          )
+        ),
+        CGH.el("nav", { class: "cgh-tabs" }),
+        CGH.el("div", { class: "cgh-body" }),
+        CGH.el("div", { class: "cgh-toast", hidden: true })
+      )
+    );
+    renderShell();
   }
 
   CGH.panel = {
@@ -92,48 +175,30 @@
     },
 
     async mount() {
-      if (host) return;
-      host = CGH.el("div", { id: "cgh-root", class: "cgh-root" });
-      // Pull ChatGPT theme tokens into the host so shadow UI can use them.
-      try {
-        const cs = getComputedStyle(document.documentElement);
-        const bg = cs.getPropertyValue("--theme-submit-btn-bg").trim();
-        const fg = cs.getPropertyValue("--theme-submit-btn-text").trim();
-        if (bg) host.style.setProperty("--theme-submit-btn-bg", bg);
-        if (fg) host.style.setProperty("--theme-submit-btn-text", fg);
-      } catch {
-        /* ignore */
+      ensureFab();
+      if (host?.isConnected && shadow) {
+        updateFab();
+        return;
       }
-      shadow = host.attachShadow({ mode: "open" });
-      document.documentElement.appendChild(host);
-      await ensureCss();
+      if (host && !host.isConnected) {
+        document.documentElement.appendChild(host);
+        ensureFab();
+        return;
+      }
+      await createHost();
+      ensureFab();
+    },
 
-      shadow.append(
-        CGH.el(
-          "button",
-          { class: "cgh-fab", type: "button", title: CGH.t.app, onclick: () => this.toggle() },
-          CGH.svg(CGH.icons.queue, 20),
-          CGH.el("span", { class: "cgh-fab-badge", hidden: true })
-        ),
-        CGH.el(
-          "aside",
-          { class: "cgh-panel", role: "dialog", "aria-label": CGH.t.app },
-          CGH.el(
-            "header",
-            { class: "cgh-header" },
-            CGH.el("div", { class: "cgh-brand" }, CGH.el("strong", { class: "cgh-logo" }, "CGH"), CGH.el("span", { class: "cgh-title" }, CGH.t.app)),
-            CGH.el(
-              "button",
-              { class: "cgh-icon-btn cgh-close-btn", type: "button", title: CGH.t.close || "Close", onclick: () => this.close() },
-              CGH.svg(CGH.icons.close, 16)
-            )
-          ),
-          CGH.el("nav", { class: "cgh-tabs" }),
-          CGH.el("div", { class: "cgh-body" }),
-          CGH.el("div", { class: "cgh-toast", hidden: true })
-        )
-      );
-      renderShell();
+    /** Reattach FAB/panel if ChatGPT or a navigation removed them. */
+    async ensureMounted() {
+      ensureFab();
+      if (!host?.isConnected || !shadow || !document.getElementById("cgh-root")) {
+        host = null;
+        shadow = null;
+        cssLoaded = false;
+        await createHost();
+        ensureFab();
+      }
     },
 
     refresh() {
@@ -144,18 +209,25 @@
     updateFab,
 
     open(tabId) {
+      if (!host) return;
       if (tabId) currentTab = tabId;
       host.classList.add("is-open");
-      shadow.querySelector(".cgh-panel")?.classList.add("is-open");
+      shadow?.querySelector(".cgh-panel")?.classList.add("is-open");
+      fab?.classList.add("is-open");
       renderShell();
     },
 
     close() {
-      host.classList.remove("is-open");
-      shadow.querySelector(".cgh-panel")?.classList.remove("is-open");
+      host?.classList.remove("is-open");
+      shadow?.querySelector(".cgh-panel")?.classList.remove("is-open");
+      fab?.classList.remove("is-open");
     },
 
     toggle() {
+      if (!host?.isConnected) {
+        this.ensureMounted().then(() => this.open());
+        return;
+      }
       if (host.classList.contains("is-open")) this.close();
       else this.open();
     },

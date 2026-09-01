@@ -41,6 +41,7 @@
         if (!CGH.extensionAlive) return;
         if (msg?.type === "TOGGLE_PANEL") CGH.panel.toggle();
         if (msg?.type === "QUEUE_PROMPT") CGH.queue.enqueueFromComposer();
+        if (msg?.type === "QUEUE_TICK") CGH.queue?.tick?.();
         if (msg?.type === "INSERT_FAVORITE") {
           CGH.storage.get("favorites").then((list) => {
             const fav = (list || []).find((f) => f.id === msg.id);
@@ -75,6 +76,8 @@
             CGH.composerBar?.update();
           }
         }
+        // Rebuild chips only when favorites/queue actually change.
+        if (changes.favorites || changes.queue) CGH.composerBar?.update();
       });
       CGH.lightTrim?.sync?.();
       await CGH.panel.mount();
@@ -83,43 +86,127 @@
       await CGH.gallery.init();
       await CGH.pins.init();
       await CGH.conversations.init();
-      await CGH.composerBar.ensure();
+      await CGH.composerBar.ensure({ render: true });
+      await CGH.caveman?.init?.();
       bindComposerKeys();
       bindMessages();
 
-      const refresh = CGH.debounce(() => {
-        if (!stillAlive()) return;
-        CGH.composerBar.ensure();
-        CGH.pins.decorate();
-        CGH.gallery.scan();
-        CGH.conversations.scrape();
-        CGH.dom.hideDisclaimer?.();
-      }, 250);
+      const hookHistory = (key) => {
+        const orig = history[key];
+        if (typeof orig !== "function" || orig.__cghHooked) return;
+        const wrapped = function (...args) {
+          const ret = orig.apply(this, args);
+          CGH.conversations?.scrape?.({ paint: true });
+          CGH.pins?.consumePendingJump?.();
+          return ret;
+        };
+        wrapped.__cghHooked = true;
+        history[key] = wrapped;
+      };
+      hookHistory("pushState");
+      hookHistory("replaceState");
 
-      const obs = new MutationObserver(refresh);
-      obs.observe(document.body, { childList: true, subtree: true });
+      let rafPending = false;
+      const repositionRaf = () => {
+        if (rafPending || !stillAlive()) return;
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          CGH.composerBar.reposition();
+        });
+      };
+
+      // Rare: disclaimer + new pin buttons. Avoid whole-document scans on every mutation.
+      const softRefresh = CGH.debounce(() => {
+        if (!stillAlive()) return;
+        CGH.dom.hideDisclaimer?.();
+        CGH.pins.decorate();
+        repositionRaf();
+      }, 400);
+
+      // Very rare: gallery index + conversation scrape (not on every DOM tweak).
+      const heavyRefresh = CGH.debounce(() => {
+        if (!stillAlive()) return;
+        CGH.dom.hideDisclaimer?.();
+        if (CGH.panel?.isOpen?.() && CGH.panel.currentTab === "gallery") {
+          CGH.gallery.scan();
+        }
+        if (CGH.panel?.isOpen?.() && CGH.panel.currentTab === "conversations") {
+          CGH.conversations.scrape({ paint: true });
+        }
+      }, 4000);
+
+      const observeRoot = document.querySelector("main") || document.body;
+      const obs = new MutationObserver((mutations) => {
+        if (!stillAlive()) return;
+        let relevant = false;
+        let pinRemoved = false;
+        let barMissing = !document.getElementById("cgh-composer-bar");
+        for (const m of mutations) {
+          if (m.type !== "childList") continue;
+          for (const n of m.removedNodes) {
+            if (n.nodeType !== 1) continue;
+            if (n.id === "cgh-composer-bar" || n.querySelector?.("#cgh-composer-bar")) {
+              barMissing = true;
+            }
+            if (
+              n.hasAttribute?.("data-cgh-pin") ||
+              n.hasAttribute?.("data-cgh-pin-wrap") ||
+              n.querySelector?.("[data-cgh-pin], [data-cgh-pin-wrap]")
+            ) {
+              pinRemoved = true;
+            }
+          }
+          for (const n of m.addedNodes) {
+            if (n.nodeType !== 1) continue;
+            if (n.id === "cgh-composer-bar" || n.closest?.("#cgh-composer-bar, #cgh-root")) continue;
+            // Ignore our own pin re-inserts to avoid decorate loops.
+            if (n.hasAttribute?.("data-cgh-pin") || n.hasAttribute?.("data-cgh-pin-wrap")) continue;
+            relevant = true;
+            break;
+          }
+          if (relevant || pinRemoved) break;
+        }
+        if (barMissing) {
+          CGH.composerBar.ensure({ render: true });
+        }
+        if (!document.getElementById("cgh-fab") || !document.getElementById("cgh-root")) {
+          CGH.panel?.ensureMounted?.();
+        }
+        if (pinRemoved) CGH.pins?.decorate?.();
+        if (barMissing) return;
+        if (!relevant) return;
+        softRefresh();
+        heavyRefresh();
+      });
+      obs.observe(observeRoot, { childList: true, subtree: true });
+
       const tickId = setInterval(() => {
         if (!stillAlive()) {
           clearInterval(tickId);
           obs.disconnect();
           return;
         }
-        CGH.composerBar.ensure();
+        CGH.panel?.ensureMounted?.();
         CGH.queue.tick();
-      }, 1200);
+        // Occasional disclaimer pass if ChatGPT re-inserted the footer.
+        if (!CGH.dom._disclaimerDone) CGH.dom.hideDisclaimer?.();
+        repositionRaf();
+      }, 2500);
 
-      window.addEventListener("popstate", refresh);
-      window.addEventListener("resize", () => {
-        if (stillAlive()) CGH.composerBar.reposition();
+      window.addEventListener("popstate", () => {
+        CGH.dom._disclaimerDone = false;
+        softRefresh();
+        CGH.composerBar.ensure({ render: true });
+        CGH.conversations.scrape({ paint: true });
+        CGH.pins?.consumePendingJump?.();
+        setTimeout(() => CGH.queue?.tick?.(), 600);
       });
-      window.addEventListener(
-        "scroll",
-        () => {
-          if (stillAlive()) CGH.composerBar.reposition();
-        },
-        true
-      );
-      refresh();
+      window.addEventListener("resize", repositionRaf);
+      window.addEventListener("scroll", repositionRaf, { capture: true, passive: true });
+
+      CGH.dom.hideDisclaimer?.();
+      softRefresh();
     } catch (err) {
       console.error("CGH init failed", err);
     }
@@ -131,4 +218,3 @@
     init();
   }
 })();
-

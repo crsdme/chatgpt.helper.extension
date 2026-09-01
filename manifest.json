@@ -21,7 +21,7 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["storage", "unlimitedStorage", "activeTab"],
+  "permissions": ["storage", "unlimitedStorage", "activeTab", "alarms", "tabs"],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*"
@@ -45,6 +45,7 @@
         "lib/storage.js",
         "lib/i18n.js",
         "lib/dom.js",
+        "lib/caveman-directive.js",
         "content/panel.js",
         "content/queue.js",
         "content/favorites.js",
@@ -53,6 +54,7 @@
         "content/conversations.js",
         "content/settings.js",
         "content/composer-bar.js",
+        "content/caveman.js",
         "content/content.js"
       ],
       "css": ["content/page.css"],

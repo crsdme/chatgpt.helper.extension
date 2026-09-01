@@ -1,4 +1,4 @@
-/* Panel/FAB host — high, but pointer-events none so page/modals stay usable */
+/* Panel host — high, but pointer-events none so page/modals stay usable */
 #cgh-root.cgh-root {
   position: fixed !important;
   inset: 0 !important;
@@ -9,21 +9,165 @@
   overflow: visible !important;
 }
 
-/* Composer chips: VERY low — must sit under ChatGPT dialogs/menus */
+/* FAB lives in light DOM (not inside pointer-events:none host) so it never "disappears". */
+#cgh-fab.cgh-fab-btn {
+  position: fixed !important;
+  right: 40px !important;
+  bottom: 24px !important;
+  z-index: 1001 !important;
+  width: 44px !important;
+  height: 44px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  background: #2f2f2f !important;
+  color: #ececec !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  transform: none !important;
+  transition: background 0.12s ease, border-color 0.12s ease !important;
+}
+
+#cgh-fab.cgh-fab-btn:hover {
+  background: #3a3a3a !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  transform: none !important;
+}
+
+#cgh-fab.cgh-fab-btn:active {
+  background: #333 !important;
+  transform: none !important;
+}
+
+#cgh-fab.cgh-fab-btn.is-open {
+  background: #3a3a3a !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  outline: none !important;
+}
+
+#cgh-fab.cgh-fab-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+  display: block !important;
+  pointer-events: none !important;
+}
+
+#cgh-fab .cgh-fab-badge {
+  position: absolute !important;
+  top: -5px !important;
+  right: -5px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 5px !important;
+  border-radius: 999px !important;
+  background: #111 !important;
+  color: #fff !important;
+  border: 2px solid #212121 !important;
+  font: 700 10px/14px ui-sans-serif, system-ui, sans-serif !important;
+  display: grid !important;
+  place-items: center !important;
+  pointer-events: none !important;
+}
+
+#cgh-fab .cgh-fab-badge[hidden] {
+  display: none !important;
+}
+
+/* Caveman chip — compact, just left of the main FAB */
+#cgh-caveman-indicator {
+  position: fixed !important;
+  right: 94px !important; /* 40px FAB offset + 44px FAB + 10px gap */
+  bottom: 30px !important; /* optically center with 44px FAB at bottom 24 */
+  z-index: 1001 !important;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 32px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #2f2f2f !important;
+  color: #ececec !important;
+  font: 600 11px/1 ui-sans-serif, system-ui, sans-serif !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28) !important;
+  appearance: none !important;
+}
+
+#cgh-caveman-indicator:hover {
+  background: #3a3a3a !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+#cgh-caveman-indicator .cgh-cm-dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: #f2792b !important;
+  box-shadow: 0 0 8px rgba(242, 121, 43, 0.65) !important;
+  flex-shrink: 0;
+}
+
+#cgh-caveman-indicator .cgh-cm-label {
+  letter-spacing: 0.02em;
+}
+
+#cgh-caveman-indicator .cgh-cm-lvl {
+  color: #bdbdbd !important;
+  font-weight: 500 !important;
+  text-transform: lowercase;
+}
+
+/*
+  Chips sit in document flow just above the ChatGPT composer form (docked).
+  They move with the input height instead of jumping via fixed top recalculation.
+*/
 #cgh-composer-bar.cgh-composer-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0;
+  padding: 0 0 8px;
   box-sizing: border-box;
-  max-width: calc(100vw - 24px);
-  z-index: 2 !important;
+  max-width: 100%;
+  z-index: 40 !important;
   pointer-events: none !important;
+  order: -1;
+}
+
+#cgh-composer-bar.cgh-composer-bar.is-docked {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 100% !important;
+  margin: 0;
+  transform: none !important;
+}
+
+#cgh-composer-bar.cgh-composer-bar.is-floating {
+  position: fixed !important;
+  max-width: calc(100vw - 24px);
+  transition: top 0.14s ease, left 0.14s ease, width 0.14s ease;
 }
 
 #cgh-composer-bar.cgh-composer-bar > * {
   pointer-events: auto !important;
+}
+
+#cgh-composer-bar .cgh-bar-chip {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 1;
 }
 
 #cgh-queue-btn {
@@ -93,24 +237,31 @@ html.light .cgh-bar-save {
   border-color: #f6e05e;
 }
 
-.cgh-bar-queue {
+#cgh-composer-bar .cgh-bar-chip.cgh-bar-queue {
   color: var(--theme-submit-btn-text, #fff);
+  background: var(--theme-submit-btn-bg);
   background-color: var(--theme-submit-btn-bg);
-  border-color: var(--theme-submit-btn-bg);
+  border-color: transparent;
   font-weight: 600;
+  opacity: 1;
+  transition: background-color 0.12s ease, background 0.12s ease;
 }
 
-.cgh-bar-queue:hover {
-  filter: brightness(1.08);
+/* Mix toward label color: white btn darkens, dark btn lightens. Never use opacity/brightness. */
+#cgh-composer-bar .cgh-bar-chip.cgh-bar-queue:hover,
+html.light #cgh-composer-bar .cgh-bar-chip.cgh-bar-queue:hover {
+  opacity: 1;
   color: var(--theme-submit-btn-text, #fff);
-  background-color: var(--theme-submit-btn-bg);
-  border-color: var(--theme-submit-btn-bg);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--theme-submit-btn-bg) 78%, var(--theme-submit-btn-text, #111));
+  background-color: color-mix(in srgb, var(--theme-submit-btn-bg) 78%, var(--theme-submit-btn-text, #111));
 }
 
-html.light .cgh-bar-queue {
-  color: var(--theme-submit-btn-text, #fff);
-  background-color: var(--theme-submit-btn-bg);
-  border-color: var(--theme-submit-btn-bg);
+#cgh-composer-bar .cgh-bar-chip.cgh-bar-queue:active,
+html.light #cgh-composer-bar .cgh-bar-chip.cgh-bar-queue:active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--theme-submit-btn-bg) 64%, var(--theme-submit-btn-text, #111));
+  background-color: color-mix(in srgb, var(--theme-submit-btn-bg) 64%, var(--theme-submit-btn-text, #111));
 }
 
 .cgh-bar-files {
@@ -118,62 +269,84 @@ html.light .cgh-bar-queue {
   color: #8e8e8e;
 }
 
-.cgh-msg {
-  position: relative;
-}
-
-.cgh-pin-btn {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 3;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(33, 33, 33, 0.88);
-  color: #cfcfcf;
+/* Pin inside ChatGPT's native action row. */
+button.cgh-pin-btn[data-cgh-pin] {
+  position: relative !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-  display: grid;
-  place-items: center;
-  padding: 0;
+  flex: 0 0 auto;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
 }
 
-html.light .cgh-pin-btn {
-  border-color: rgba(0, 0, 0, 0.08);
-  background: rgba(255, 255, 255, 0.92);
-  color: #444;
-}
-
-.cgh-pin-btn svg {
-  width: 15px;
-  height: 15px;
+button.cgh-pin-btn[data-cgh-pin] svg {
   display: block;
+  stroke: currentColor;
+  fill: none;
 }
 
-.cgh-msg:hover > .cgh-pin-btn,
-.cgh-is-pinned > .cgh-pin-btn {
+button.cgh-pin-btn[data-cgh-pin].is-on {
+  color: var(--text-primary, #ececec);
+}
+
+button.cgh-pin-btn[data-cgh-pin].is-on svg {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+/* ChatGPT-like floating tooltip (ported to documentElement so it isn't clipped). */
+.cgh-tip {
+  position: fixed;
+  z-index: 2147483646;
+  transform: translate(-50%, calc(-100% - 8px));
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #212121;
+  color: #fff;
+  font: 500 12px/1.2 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.12s ease;
+}
+.cgh-tip.is-on {
   opacity: 1;
+  visibility: visible;
+}
+html.light .cgh-tip {
+  background: #1f1f1f;
+  color: #fff;
 }
 
-.cgh-is-pinned > .cgh-pin-btn {
-  color: var(--theme-submit-btn-text, #fff);
-  border-color: var(--theme-submit-btn-bg);
-  background-color: var(--theme-submit-btn-bg);
+[data-cgh-pin-wrap] {
+  display: contents;
 }
 
-.cgh-pin-btn:hover {
-  color: var(--theme-submit-btn-text, #fff);
-  border-color: var(--theme-submit-btn-bg);
-  background-color: var(--theme-submit-btn-bg);
+/* Soft ChatGPT-like highlight for pinned messages. */
+.cgh-is-pinned,
+[data-cgh-pinned="1"] {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  border-radius: 1.25rem;
+  background-color: rgba(255, 255, 255, 0.025);
+}
+html.light .cgh-is-pinned,
+html.light [data-cgh-pinned="1"] {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  background-color: rgba(0, 0, 0, 0.02);
 }
 
-.cgh-is-pinned {
-  outline: 1px solid color-mix(in srgb, var(--theme-submit-btn-bg) 55%, transparent);
-  outline-offset: 4px;
-  border-radius: 12px;
+/* Legacy floating pin — force-hide if any leftover remains. */
+button.cgh-pin-btn.cgh-pin-floating {
+  display: none !important;
 }
 
 .cgh-flash {
@@ -185,7 +358,16 @@ html.light .cgh-pin-btn {
   30% { background-color: color-mix(in srgb, var(--theme-submit-btn-bg) 18%, transparent); }
 }
 
-/* Hide ChatGPT disclaimer under the composer */
-.cgh-hide-disclaimer {
+/* Hide ChatGPT disclaimer under the composer — must not steal clicks */
+.cgh-hide-disclaimer,
+[data-cgh-disclaimer-hidden="1"] {
   display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
 }

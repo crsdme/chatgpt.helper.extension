@@ -1,14 +1,18 @@
 (() => {
   const CGH = (window.CGH = window.CGH || {});
+  let pendingCompose = null;
 
   async function all() {
     return (await CGH.storage.get("favorites")) || [];
   }
 
+  function isOnBar(fav) {
+    return fav?.barPinned !== false;
+  }
+
   async function save(list) {
     await CGH.storage.set({ favorites: list });
     CGH.composerBar?.update();
-    CGH.panel?.refresh();
   }
 
   function form(existing, onDone) {
@@ -22,7 +26,11 @@
       placeholder: CGH.t.text,
       rows: "5",
     });
-    text.value = existing?.text || CGH.dom.getComposerText() || "";
+    text.value = existing?.text || "";
+
+    const onBar = CGH.el("input", { type: "checkbox" });
+    onBar.checked = existing?.id ? isOnBar(existing) : true;
+
     return CGH.el(
       "form",
       {
@@ -33,17 +41,19 @@
           const nextText = text.value.trim();
           if (!nextText) return;
           const list = await all();
-          if (existing) {
+          if (existing?.id) {
             const item = list.find((x) => x.id === existing.id);
             if (item) {
               item.title = nextTitle || nextText.slice(0, 40);
               item.text = nextText;
+              item.barPinned = !!onBar.checked;
             }
           } else {
             list.push({
               id: CGH.uuid(),
               title: nextTitle || nextText.slice(0, 40),
               text: nextText,
+              barPinned: !!onBar.checked,
               createdAt: Date.now(),
             });
           }
@@ -54,6 +64,7 @@
       },
       title,
       text,
+      CGH.el("label", { class: "cgh-check" }, onBar, CGH.t.pinPromptToBar || "Show on bar"),
       CGH.el(
         "div",
         { class: "cgh-toolbar" },
@@ -65,8 +76,20 @@
 
   CGH.favorites = {
     all,
+    isOnBar,
 
     async init() {},
+
+    /** Open prompts list on the right. With compose, prefill a new-prompt form. */
+    async openPanel({ compose = false } = {}) {
+      pendingCompose = null;
+      if (compose) {
+        const text = CGH.dom.getComposerText().trim();
+        if (text) pendingCompose = { text };
+      }
+      if (CGH.panel?.ensureMounted) await CGH.panel.ensureMounted();
+      CGH.panel?.open?.("favorites");
+    },
 
     async insert(fav, { replace = false, send = false } = {}) {
       const current = CGH.dom.getComposerText();
@@ -84,22 +107,13 @@
       await save(list);
     },
 
-    async saveCurrent() {
-      const text = CGH.dom.getComposerText().trim();
-      if (!text) {
-        CGH.panel?.toast(CGH.t.emptyPrompt, "error");
-        CGH.panel?.setTab("favorites");
-        return;
-      }
+    async toggleBarPin(id) {
       const list = await all();
-      list.push({
-        id: CGH.uuid(),
-        title: text.slice(0, 40),
-        text,
-        createdAt: Date.now(),
-      });
+      const item = list.find((x) => x.id === id);
+      if (!item) return;
+      item.barPinned = !isOnBar(item);
       await save(list);
-      CGH.panel?.toast(CGH.t.saved);
+      CGH.panel?.toast(item.barPinned ? CGH.t.promptPinnedToBar : CGH.t.promptUnpinnedFromBar);
     },
 
     async exportAll() {
@@ -119,6 +133,7 @@
           id: CGH.uuid(),
           title: item.title || String(item.text).slice(0, 40),
           text: String(item.text),
+          barPinned: item.barPinned !== false,
           createdAt: Date.now(),
         });
       }
@@ -127,6 +142,11 @@
 
     async render(root) {
       let editing = null;
+      if (pendingCompose) {
+        editing = { text: pendingCompose.text || "", title: "" };
+        pendingCompose = null;
+      }
+
       const draw = async () => {
         const list = await all();
         root.replaceChildren();
@@ -139,7 +159,8 @@
               class: "cgh-btn cgh-btn-primary",
               type: "button",
               onclick: () => {
-                editing = {};
+                const draft = CGH.dom.getComposerText().trim();
+                editing = draft ? { text: draft, title: "" } : {};
                 draw();
               },
             },
@@ -154,6 +175,7 @@
                 try {
                   await this.importAll(input.files[0]);
                   CGH.panel?.toast(CGH.t.saved);
+                  draw();
                 } catch (err) {
                   CGH.panel?.toast(err.message, "error");
                 }
@@ -168,9 +190,11 @@
           })()
         );
         root.append(toolbar);
+        root.append(CGH.el("p", { class: "cgh-hint" }, CGH.t.promptsBarHint || ""));
+
         if (editing) {
           root.append(
-            form(editing.id ? editing : null, () => {
+            form(editing, () => {
               editing = null;
               draw();
             })
@@ -183,15 +207,35 @@
         }
         const box = CGH.el("div", { class: "cgh-list" });
         for (const fav of list) {
+          const pinned = isOnBar(fav);
           box.append(
             CGH.el(
               "article",
-              { class: "cgh-card" },
-              CGH.el("h4", { class: "cgh-card-title" }, fav.title),
+              { class: `cgh-card ${pinned ? "is-bar-pinned" : ""}` },
+              CGH.el(
+                "div",
+                { class: "cgh-card-top" },
+                CGH.el("h4", { class: "cgh-card-title" }, fav.title),
+                CGH.el(
+                  "span",
+                  { class: `cgh-bar-pin-tag ${pinned ? "is-on" : ""}` },
+                  pinned ? CGH.t.onBar || "On bar" : CGH.t.offBar || "Hidden"
+                )
+              ),
               CGH.el("p", { class: "cgh-card-text" }, fav.text),
               CGH.el(
                 "div",
                 { class: "cgh-card-actions" },
+                CGH.el(
+                  "button",
+                  {
+                    class: `cgh-icon-btn ${pinned ? "is-on" : ""}`,
+                    type: "button",
+                    title: pinned ? CGH.t.unpinPromptFromBar : CGH.t.pinPromptToBar,
+                    onclick: () => this.toggleBarPin(fav.id).then(draw),
+                  },
+                  CGH.svg(CGH.icons.pin, 14)
+                ),
                 CGH.el("button", { class: "cgh-btn cgh-btn-primary", type: "button", onclick: () => this.insert(fav) }, CGH.t.insert),
                 CGH.el("button", { class: "cgh-btn", type: "button", onclick: () => this.insert(fav, { send: true }) }, CGH.t.sendNow),
                 CGH.el(
@@ -199,7 +243,7 @@
                   {
                     class: "cgh-icon-btn",
                     type: "button",
-                    title: "Изменить",
+                    title: CGH.t.edit || "Edit",
                     onclick: () => {
                       editing = fav;
                       draw();
@@ -209,7 +253,7 @@
                 ),
                 CGH.el(
                   "button",
-                  { class: "cgh-icon-btn danger", type: "button", onclick: () => this.remove(fav.id) },
+                  { class: "cgh-icon-btn danger", type: "button", onclick: () => this.remove(fav.id).then(draw) },
                   CGH.svg(CGH.icons.trash, 14)
                 )
               )
